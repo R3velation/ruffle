@@ -66,3 +66,20 @@ false
 [object TextField]
 
 
+/// onLink called!
+// event.text
+Caps Test
+
+// event.bubbles
+true
+
+// event.cancelable
+false
+
+// event.currentTarget
+[object TextField]
+
+// event.target
+[object TextField]
+
+
