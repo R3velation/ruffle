@@ -2468,18 +2468,27 @@ impl<'gc> EditText<'gc> {
     }
 
     fn open_url(self, context: &mut UpdateContext<'gc>, url: &WStr, target: &WStr) {
-        let (prefix, address) = url.split_at(11);
-        if prefix.eq_ignore_case(WStr::from_units(b"asfunction:")) {
-            if let Err(e) = self.execute_avm1_asfunction(context, address) {
-                error!("Couldn't execute URL \"{url:?}\": {e:?}");
-            }
-        }  else if let Some(address) = url.strip_prefix(WStr::from_units(b"event:")) {
-            if let Some(object) = self.object2() {
-                let mut activation = Avm2Activation::from_nothing(context);
-                let text = AvmString::new(activation.gc(), address);
-                let event = Avm2EventObject::text_event(&mut activation, "link", text, true, false);
+        if let Some(prefix_end) = url.find(WStr::from_units(b":")) {
+            let (prefix, address) = url.split_at(prefix_end + 1);
+            if prefix.eq_ignore_case(WStr::from_units(b"asfunction:")) {
+                if let Err(e) = self.execute_avm1_asfunction(context, address) {
+                    error!("Couldn't execute URL \"{url:?}\": {e:?}");
+                }
+            } else if let Some(address) = url.strip_prefix(WStr::from_units(b"event:")) {
+                if let Some(object) = self.object2() {
+                    let mut activation = Avm2Activation::from_nothing(context);
+                    let text = AvmString::new(activation.gc(), address);
+                    let event =
+                        Avm2EventObject::text_event(&mut activation, "link", text, true, false);
 
-                Avm2::dispatch_event(activation.context, event, object.into());
+                    Avm2::dispatch_event(activation.context, event, object.into());
+                }
+            } else {
+                context.navigator.navigate_to_url(
+                    &url.to_utf8_lossy(),
+                    &target.to_utf8_lossy(),
+                    None,
+                );
             }
         } else {
             context
