@@ -2474,7 +2474,7 @@ impl<'gc> EditText<'gc> {
                 if let Err(e) = self.execute_avm1_asfunction(context, address) {
                     error!("Couldn't execute URL \"{url:?}\": {e:?}");
                 }
-            } else if let Some(address) = url.strip_prefix(WStr::from_units(b"event:")) {
+            } else if prefix.eq_ignore_case(WStr::from_units(b"event:")) {
                 if let Some(object) = self.object2() {
                     let mut activation = Avm2Activation::from_nothing(context);
                     let text = AvmString::new(activation.gc(), address);
