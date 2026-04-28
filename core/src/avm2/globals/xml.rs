@@ -24,15 +24,15 @@ pub fn init<'gc>(
     let ignore_processing_instructions = args.get_bool(2);
     let ignore_whitespace = args.get_bool(3);
 
-    if let Some(obj) = value.as_object() {
-        if let Some(xml_list) = obj.as_xml_list_object() {
-            // Note - 'new XML(new XMLList())' throws an error, even though
-            // 'new XML("")' does not. We need this special case to ensure that we return
-            // an error, since E4XNode::parse would otherwise return an empty array
-            // (which would be accepted)
-            if xml_list.length() != 1 {
-                return Err(make_error_1088(activation));
-            }
+    if let Some(obj) = value.as_object()
+        && let Some(xml_list) = obj.as_xml_list_object()
+    {
+        // Note - 'new XML(new XMLList())' throws an error, even though
+        // 'new XML("")' does not. We need this special case to ensure that we return
+        // an error, since E4XNode::parse would otherwise return an empty array
+        // (which would be accepted)
+        if xml_list.length() != 1 {
+            return Err(make_error_1088(activation));
         }
     }
 
@@ -508,22 +508,22 @@ pub fn remove_namespace<'gc>(
         }
     }
 
-    // 6. If ns.prefix == undefined
-    if ns.prefix.is_none() {
+    {
         let E4XNodeKind::Element { namespaces, .. } = &mut *node.kind_mut(activation.gc()) else {
             unreachable!()
         };
-        // 6.a. If there exists a namespace n ∈ x.[[InScopeNamespaces]],
-        // such that n.uri == ns.uri, remove the namespace n from x.[[InScopeNamespaces]]
-        namespaces.retain(|namespace| namespace.uri != ns.uri);
-    } else {
+
+        // 6. If ns.prefix == undefined
+        if ns.prefix.is_none() {
+            // 6.a. If there exists a namespace n ∈ x.[[InScopeNamespaces]],
+            // such that n.uri == ns.uri, remove the namespace n from x.[[InScopeNamespaces]]
+            namespaces.retain(|namespace| namespace.uri != ns.uri);
         // 7. Else
-        let E4XNodeKind::Element { namespaces, .. } = &mut *node.kind_mut(activation.gc()) else {
-            unreachable!()
-        };
-        // 7.a. If there exists a namespace n ∈ x.[[InScopeNamespaces]],
-        // such that n.uri == ns.uri and n.prefix == ns.prefix, remove the namespace n from x.[[InScopeNamespaces]]
-        namespaces.retain(|namespace| *namespace != ns);
+        } else {
+            // 7.a. If there exists a namespace n ∈ x.[[InScopeNamespaces]],
+            // such that n.uri == ns.uri and n.prefix == ns.prefix, remove the namespace n from x.[[InScopeNamespaces]]
+            namespaces.retain(|namespace| *namespace != ns);
+        }
     }
 
     let E4XNodeKind::Element { children, .. } = &*node.kind() else {
@@ -826,21 +826,21 @@ pub fn call_handler<'gc>(
     _this: Value<'gc>,
     args: &[Value<'gc>],
 ) -> Result<Value<'gc>, Error<'gc>> {
-    if args.len() == 1 {
-        if let Some(obj) = args.get_value(0).as_object() {
-            // We do *not* create a new object when AS does 'XML(someXML)'
-            if let Some(xml) = obj.as_xml_object() {
-                return Ok(xml.into());
+    if args.len() == 1
+        && let Some(obj) = args.get_value(0).as_object()
+    {
+        // We do *not* create a new object when AS does 'XML(someXML)'
+        if let Some(xml) = obj.as_xml_object() {
+            return Ok(xml.into());
+        }
+        // This re-uses the XML object stored in the list
+        if let Some(xml_list) = obj.as_xml_list_object() {
+            if xml_list.length() == 1 {
+                return Ok(xml_list.children_mut(activation.gc())[0]
+                    .get_or_create_xml(activation)
+                    .into());
             }
-            // This re-uses the XML object stored in the list
-            if let Some(xml_list) = obj.as_xml_list_object() {
-                if xml_list.length() == 1 {
-                    return Ok(xml_list.children_mut(activation.gc())[0]
-                        .get_or_create_xml(activation)
-                        .into());
-                }
-                return Err(make_error_1088(activation));
-            }
+            return Err(make_error_1088(activation));
         }
     }
 
@@ -1089,10 +1089,10 @@ pub fn insert_child_after<'gc>(
         if let Some(xml) = x.as_xml_object() {
             return Some(xml.node());
         // NOTE: Non-standard avmplus behavior, single element XMLLists are treated as XML objects.
-        } else if let Some(list) = x.as_xml_list_object() {
-            if list.length() == 1 {
-                return Some(list.children()[0].node());
-            }
+        } else if let Some(list) = x.as_xml_list_object()
+            && list.length() == 1
+        {
+            return Some(list.children()[0].node());
         }
 
         None
@@ -1147,10 +1147,10 @@ pub fn insert_child_before<'gc>(
         if let Some(xml) = x.as_xml_object() {
             return Some(xml.node());
         // NOTE: Non-standard avmplus behavior, single element XMLLists are treated as XML objects.
-        } else if let Some(list) = x.as_xml_list_object() {
-            if list.length() == 1 {
-                return Some(list.children()[0].node());
-            }
+        } else if let Some(list) = x.as_xml_list_object()
+            && list.length() == 1
+        {
+            return Some(list.children()[0].node());
         }
 
         None
@@ -1229,12 +1229,12 @@ pub fn replace<'gc>(
     };
 
     // 4. If ToString(ToUint32(P)) == P
-    if let Some(local_name) = multiname.local_name() {
-        if let Ok(index) = local_name.parse::<usize>() {
-            // 4.a. Call the [[Replace]] method of x with arguments P and c and return x
-            self_node.replace(index, value, activation)?;
-            return Ok(xml.into());
-        }
+    if let Some(local_name) = multiname.local_name()
+        && let Ok(index) = local_name.parse::<usize>()
+    {
+        // 4.a. Call the [[Replace]] method of x with arguments P and c and return x
+        self_node.replace(index, value, activation)?;
+        return Ok(xml.into());
     }
 
     // 5. Let n be a QName object created as if by calling the function QName(P)
