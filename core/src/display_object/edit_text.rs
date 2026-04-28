@@ -2472,12 +2472,12 @@ impl<'gc> EditText<'gc> {
             if let Some(prefix_end) = url.find(WStr::from_units(b":")) {
                 let (stripped_prefix, address) = url.split_at(prefix_end + 1);
                 if stripped_prefix.eq_ignore_case(prefix) {
-                    return Some(address);
+                    Some(address)
                 } else {
-                    return None;
+                    None
                 }
             } else {
-                return None;
+                None
             }
         }
 
