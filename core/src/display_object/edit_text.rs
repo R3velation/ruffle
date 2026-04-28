@@ -2468,27 +2468,30 @@ impl<'gc> EditText<'gc> {
     }
 
     fn open_url(self, context: &mut UpdateContext<'gc>, url: &WStr, target: &WStr) {
-        if let Some(prefix_end) = url.find(WStr::from_units(b":")) {
-            let (prefix, address) = url.split_at(prefix_end + 1);
-            if prefix.eq_ignore_case(WStr::from_units(b"asfunction:")) {
-                if let Err(e) = self.execute_avm1_asfunction(context, address) {
-                    error!("Couldn't execute URL \"{url:?}\": {e:?}");
-                }
-            } else if prefix.eq_ignore_case(WStr::from_units(b"event:")) {
-                if let Some(object) = self.object2() {
-                    let mut activation = Avm2Activation::from_nothing(context);
-                    let text = AvmString::new(activation.gc(), address);
-                    let event =
-                        Avm2EventObject::text_event(&mut activation, "link", text, true, false);
-
-                    Avm2::dispatch_event(activation.context, event, object.into());
+        fn strip_url_prefix<'a>(url: &'a WStr, prefix: &'a WStr) -> Option<&'a WStr> {
+            if let Some(prefix_end) = url.find(WStr::from_units(b":")) {
+                let (stripped_prefix, address) = url.split_at(prefix_end + 1);
+                if stripped_prefix.eq_ignore_case(prefix) {
+                    return Some(address);
+                } else {
+                    return None;
                 }
             } else {
-                context.navigator.navigate_to_url(
-                    &url.to_utf8_lossy(),
-                    &target.to_utf8_lossy(),
-                    None,
-                );
+                return None;
+            }
+        }
+
+        if let Some(address) = strip_url_prefix(url, WStr::from_units(b"asfunction:")) {
+            if let Err(e) = self.execute_avm1_asfunction(context, address) {
+                error!("Couldn't execute URL \"{url:?}\": {e:?}");
+            }
+        } else if let Some(address) = strip_url_prefix(url, WStr::from_units(b"event:")) {
+            if let Some(object) = self.object2() {
+                let mut activation = Avm2Activation::from_nothing(context);
+                let text = AvmString::new(activation.gc(), address);
+                let event = Avm2EventObject::text_event(&mut activation, "link", text, true, false);
+
+                Avm2::dispatch_event(activation.context, event, object.into());
             }
         } else {
             context
